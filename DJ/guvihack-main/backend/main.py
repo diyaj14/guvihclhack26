@@ -82,6 +82,36 @@ def read_root():
 
 from livekit import api
 
+# Add validation error handler to debug hackathon tester issues
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Log the validation error details
+    print("=" * 70)
+    print("❌ VALIDATION ERROR - Request from hackathon tester failed:")
+    print(f"URL: {request.url}")
+    print(f"Method: {request.method}")
+    print(f"Headers: {dict(request.headers)}")
+    try:
+        body = await request.body()
+        print(f"Body: {body.decode('utf-8')}")
+    except:
+        print("Could not read request body")
+    print(f"Pydantic Errors: {exc.errors()}")
+    print("=" * 70)
+    
+    # Return detailed error for debugging
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "body_received": str(body.decode('utf-8') if body else None),
+            "help": "Check that your request matches the schema: sessionId, message{sender, text, timestamp}, conversationHistory[]"
+        }
+    )
+
 @app.get("/token")
 def get_token(request: Request):
     """

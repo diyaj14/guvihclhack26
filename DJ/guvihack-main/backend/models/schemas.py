@@ -1,17 +1,29 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional, Union
 
 class MessageObj(BaseModel):
+    model_config = ConfigDict(
+        extra='allow',  # Allow extra fields from hackathon tester
+        str_strip_whitespace=True
+    )
+    
     sender: str
     text: str
-    timestamp: Optional[str] = None
+    timestamp: Optional[Union[int, str]] = None  # Accept both int and string for compatibility
 
 class MetadataObj(BaseModel):
+    model_config = ConfigDict(extra='allow')  # Allow extra fields
+    
     channel: str = "SMS"
     language: str = "English"
     locale: str = "IN"
 
 class ChallengeInput(BaseModel):
+    model_config = ConfigDict(
+        extra='allow',  # Allow extra fields from hackathon tester
+        str_strip_whitespace=True
+    )
+    
     sessionId: str
     message: MessageObj
     conversationHistory: List[MessageObj] = []
