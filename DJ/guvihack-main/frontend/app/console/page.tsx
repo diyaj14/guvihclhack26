@@ -23,6 +23,7 @@ interface Message {
     role: 'agent' | 'scammer';
     text: string;
     timestamp: string;
+    source?: 'voice' | 'text';
 }
 
 interface Intelligence {
@@ -41,44 +42,57 @@ const TEST_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiU2NhbW1lciB
 
 // --- Sub-Components ---
 
-const CircularGauge = ({ value, label, size = 160, active = false }: { value: number, label: string, size?: number, active?: boolean }) => {
-    const radius = size * 0.4;
-    const stroke = size * 0.1;
-    const normalizedRadius = radius - stroke * 2;
-    const circumference = normalizedRadius * 2 * Math.PI;
+const CircularGauge = ({ value, label, active = false }: { value: number, label: string, active?: boolean }) => {
+    const radius = 70;
+    const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (value / 100) * circumference;
 
     return (
-        <div className={`flex flex-col items-center justify-center relative bg-white/40 backdrop-blur-xl rounded-[2.5rem] border transition-all duration-500 ${active ? 'border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.2)]' : 'border-white shadow-xl'} p-8 h-full`}>
-            <div className="absolute top-4 right-6 text-[8px] font-black text-slate-300 uppercase tracking-widest">{label}</div>
-            <svg height={size} width={size} className={`transform -rotate-90 transition-transform duration-500 ${active ? 'scale-110' : 'scale-100'}`}>
-                <circle
-                    stroke="#cbd5e1"
-                    fill="transparent"
-                    strokeWidth={stroke}
-                    r={normalizedRadius}
-                    cx={size / 2}
-                    cy={size / 2}
-                    className="opacity-50"
-                />
-                <motion.circle
-                    stroke={value > 70 ? "#f43f5e" : value > 30 ? "#f59e0b" : "#6366f1"}
-                    fill="transparent"
-                    strokeWidth={stroke}
-                    strokeDasharray={circumference + ' ' + circumference}
-                    style={{ strokeDashoffset }}
-                    strokeLinecap="round"
-                    r={normalizedRadius}
-                    cx={size / 2}
-                    cy={size / 2}
-                    initial={{ strokeDashoffset: circumference }}
-                    animate={{ strokeDashoffset }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                />
-            </svg>
-            <div className="absolute flex flex-col items-center">
-                <span className="text-3xl font-black text-slate-800 tracking-tighter">{Math.floor(value)}%</span>
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Intensity</span>
+        <div className={`flex flex-col items-center justify-center bg-white/40 backdrop-blur-xl rounded-[2.5rem] border transition-all duration-500 ${active ? 'border-rose-400 shadow-[0_0_40px_rgba(244,63,94,0.3)] scale-[1.02]' : 'border-white shadow-xl'} p-8 h-full relative overflow-hidden group`}>
+            {active && <div className="absolute inset-0 bg-rose-500/5 animate-pulse rounded-[2.5rem]" />}
+            <div className="absolute top-6 left-0 right-0 text-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+            </div>
+
+            <div className="relative w-48 h-48 flex items-center justify-center mt-4">
+                {/* Background Track */}
+                <svg className="transform -rotate-90 w-full h-full">
+                    <circle
+                        cx="50%"
+                        cy="50%"
+                        r={radius}
+                        stroke="#e2e8f0"
+                        strokeWidth="12"
+                        fill="transparent"
+                        className="opacity-50"
+                    />
+                    {/* Foreground Progress - Added Gradient Definition */}
+                    <defs>
+                        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#6366f1" />
+                            <stop offset="100%" stopColor="#f43f5e" />
+                        </linearGradient>
+                    </defs>
+                    <motion.circle
+                        cx="50%"
+                        cy="50%"
+                        r={radius}
+                        stroke="url(#gaugeGradient)"
+                        strokeWidth="12"
+                        fill="transparent"
+                        strokeDasharray={circumference}
+                        initial={{ strokeDashoffset: circumference }}
+                        animate={{ strokeDashoffset }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        strokeLinecap="round"
+                    />
+                </svg>
+
+                {/* Center Value */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-5xl font-black text-slate-800 tracking-tighter drop-shadow-sm">{Math.floor(value)}%</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Intensity</span>
+                </div>
             </div>
         </div>
     );
@@ -324,7 +338,8 @@ export default function ConsolePage() {
                                 id: t.id,
                                 role,
                                 text: text,
-                                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                source: 'voice'
                             }];
                         }
                     });
@@ -462,7 +477,8 @@ export default function ConsolePage() {
         const userMsg: Message = {
             role: 'scammer',
             text: inputValue,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            source: 'text'
         };
 
         setMessages(prev => [...prev, userMsg]);
@@ -477,7 +493,7 @@ export default function ConsolePage() {
                 headers: { 'Content-Type': 'application/json', 'X-API-Key': '12345' },
                 body: JSON.stringify({
                     sessionId: "console-session",
-                    message: { text: userMsg.text },
+                    message: { text: userMsg.text, sender: 'scammer' },
                     conversationHistory: messages.map(m => ({ text: m.text, sender: m.role })),
                     metadata: { persona: persona }
                 })
@@ -490,7 +506,8 @@ export default function ConsolePage() {
                 const agentMsg: Message = {
                     role: 'agent',
                     text: data.reply,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    source: 'text'
                 };
                 setMessages(prev => [...prev, agentMsg]);
 
@@ -535,7 +552,7 @@ export default function ConsolePage() {
     if (!mounted) return null;
 
     return (
-        <main className="w-full min-h-screen bg-[#F8FAFC] p-6 lg:p-12 overflow-hidden selection:bg-indigo-500 selection:text-white flex flex-col gap-8">
+        <main className="w-full min-h-screen bg-[#F8FAFC] p-6 lg:p-12 selection:bg-indigo-500 selection:text-white flex flex-col gap-8">
 
             {/* BACKGROUND DECOR */}
             <div className="fixed inset-0 pointer-events-none -z-10 bg-grid-[#e2e8f0]/30 [mask-image:radial-gradient(white,transparent_85%)]"></div>
@@ -543,7 +560,7 @@ export default function ConsolePage() {
             <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-100/40 blur-[120px] rounded-full -z-10"></div>
 
             {/* HEADER ROW */}
-            <header className="flex flex-col lg:flex-row justify-between items-center gap-8">
+            <header className="flex flex-col lg:flex-row justify-between items-center gap-8 shrink-0">
                 <div className="flex items-center gap-6">
                     <Link href="/" className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-900 shadow-xl hover:scale-110 transition-transform border border-slate-100">
                         <ChevronLeft size={24} />
@@ -618,7 +635,7 @@ export default function ConsolePage() {
                 </div>
 
                 {/* CENTER: CHAT INTERFACE */}
-                <div className="col-span-12 lg:col-span-6 flex flex-col bg-white/50 backdrop-blur-xl rounded-[3rem] border border-white shadow-2xl relative overflow-hidden h-[600px] lg:h-auto">
+                <div className="col-span-12 lg:col-span-6 flex flex-col bg-white/50 backdrop-blur-xl rounded-[3rem] border border-white shadow-2xl relative overflow-hidden h-[600px] lg:h-[92vh]">
                     <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white/30">
                         <div className="flex items-center gap-3">
                             <Radio size={18} className="text-indigo-600 animate-pulse" />
@@ -634,7 +651,7 @@ export default function ConsolePage() {
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-hide">
+                    <div className="flex-1 overflow-y-auto p-10 space-y-6 scrollbar-thin scrollbar-thumb-indigo-200 scrollbar-track-transparent">
                         <AnimatePresence initial={false}>
                             {messages.map((m, i) => (
                                 <motion.div
@@ -649,11 +666,11 @@ export default function ConsolePage() {
                                         }`}>
                                         <div className="flex justify-between items-center gap-10">
                                             <span className={`text-[9px] font-black uppercase tracking-widest opacity-60 leading-none`}>
-                                                {m.role === 'agent' ? 'Uplink' : 'Intercept'}
+                                                {m.role === 'agent' ? 'VIGILANTE AI' : 'Intercept'}
                                             </span>
                                             <span className="text-[8px] font-bold opacity-40">{m.timestamp}</span>
                                         </div>
-                                        <p className="font-bold leading-relaxed">{m.text}</p>
+                                        <p className="font-bold leading-relaxed whitespace-pre-wrap break-words">{m.text}</p>
                                     </div>
                                 </motion.div>
                             ))}
@@ -689,7 +706,7 @@ export default function ConsolePage() {
                     <LatencySparkline data={metrics.latencyHistory} />
 
                     {/* INTEL CARDS */}
-                    <div className="flex-1 bg-white border border-slate-100 rounded-[3rem] shadow-xl p-8 overflow-y-auto scrollbar-hide flex flex-col">
+                    <div className="flex-1 bg-white border border-slate-100 rounded-[3rem] shadow-xl p-8 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent flex flex-col">
                         <div className="flex items-center gap-3 mb-8">
                             <Brain size={18} className="text-purple-600" />
                             <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em]">Neural Extraction</h3>
@@ -729,14 +746,14 @@ export default function ConsolePage() {
                     </div>
 
                     {/* MINIMAL TERMINAL */}
-                    <div className="h-40 bg-slate-900 rounded-[2.5rem] p-6 shadow-2xl relative overflow-hidden flex flex-col">
+                    <div className="h-40 bg-white/40 backdrop-blur-xl border border-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden flex flex-col">
                         <div className="flex items-center gap-3 mb-4">
-                            <Terminal size={12} className="text-white/20" />
-                            <h4 className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Protocol Debugger</h4>
+                            <Terminal size={12} className="text-slate-400" />
+                            <h4 className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Protocol Debugger</h4>
                         </div>
-                        <div className="flex-1 overflow-y-auto font-mono text-[9px] text-indigo-400 opacity-60 space-y-1 scrollbar-hide">
+                        <div className="flex-1 overflow-y-auto font-mono text-[9px] text-slate-600 space-y-1 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
                             {logs.map((log, i) => (
-                                <div key={i}><span className="text-white/20 mr-2">&gt;&gt;</span> {log}</div>
+                                <div key={i}><span className="text-slate-300 mr-2">&gt;&gt;</span> {log}</div>
                             ))}
                         </div>
                     </div>

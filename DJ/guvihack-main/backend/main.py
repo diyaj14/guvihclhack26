@@ -71,7 +71,7 @@ def send_guvi_callback(session_id: str, total_msgs: int, intel: dict, notes: str
     }
     
     try:
-        # requests.post(callback_url, json=payload, timeout=5) # Uncomment during actual Hackathon
+        requests.post(callback_url, json=payload, timeout=5) # Uncommented for final submission
         print(f"Callback Payload (Mock Sent): {json.dumps(payload, indent=2)}")
     except Exception as e:
         print(f"Callback Failed: {e}")
@@ -94,8 +94,12 @@ def get_token(request: Request):
     if not api_key or not api_secret:
         raise HTTPException(status_code=500, detail="LIVEKIT_API_KEY or LIVEKIT_API_SECRET not set in backend/.env")
 
-    # Grant access to the test-room
-    grant = api.VideoGrants(room_join=True, room="test-room")
+    # Grant access to the test-room with explicit metadata update permission
+    grant = api.VideoGrants(
+        room_join=True, 
+        room="test-room",
+        can_update_own_metadata=True
+    )
     
     # Create token for a unified "Scammer Caller" identity
     # In a real app, this would be unique per user.
@@ -115,7 +119,7 @@ async def scam_webhook(
 ):
     # Auth Check
     if x_api_key != "YOUR_SECRET_API_KEY" and x_api_key != "12345": 
-        pass 
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
     print(f"Incoming ({data.sessionId}): {data.message.text}")
     
@@ -193,7 +197,10 @@ async def scam_webhook(
     # 6. Schedule Callback (Guideline 12)
     # Include scam confidence in notes
     notes = f"Scam Confidence: {scam_analysis['confidence']} ({', '.join(scam_analysis['reasons'])}) | Strategy: {strategy}"
-    background_tasks.add_task(send_guvi_callback, data.sessionId, msg_count, final_intel, notes)
+    
+    # Only send callback if scam is actually detected or high confidence
+    if scam_analysis["is_scam"] or scam_analysis['confidence'] > 0.4:
+        background_tasks.add_task(send_guvi_callback, data.sessionId, msg_count, final_intel, notes)
 
     # 7. Return JSON
     return AgentAPIResponse(

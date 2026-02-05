@@ -4,4 +4,4 @@ python-dotenv
 groq
 pydantic
 requests
-livekit-server-sdk
+livekit-api
