@@ -1,0 +1,1 @@
+worker: python agent/agent.py start

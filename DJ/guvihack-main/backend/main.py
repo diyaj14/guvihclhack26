@@ -118,7 +118,7 @@ async def scam_webhook(
     x_api_key: str = Header(None) # Guideline: 4. API Authentication
 ):
     # Auth Check
-    if x_api_key != "YOUR_SECRET_API_KEY" and x_api_key != "12345": 
+    if x_api_key != "meowdj@32": 
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
     print(f"Incoming ({data.sessionId}): {data.message.text}")
