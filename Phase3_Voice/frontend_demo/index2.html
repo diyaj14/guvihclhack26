@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigilante AI | Liquid Interceptor</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000000;
+            --primary: #ffffff;
+            --accent-cyan: #4285F4;
+            --accent-pink: #ff69b4;
+            --accent-idle: #2e0854;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* --- SVG GRAIN & GOOEY FILTERS --- */
+        .svg-filters {
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+
+        /* --- MESH GRADIENT BLOBS --- */
+        .blobs-root {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            opacity: 0.3;
+        }
+
+        .ambient-blob {
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            border-radius: 100%;
+            filter: blur(120px);
+            opacity: 0.5;
+            transition: transform 1s ease;
+        }
+
+        .blob-1 {
+            background: radial-gradient(circle, #1a0b2e 0%, transparent 70%);
+            top: -20%;
+            left: -10%;
+        }
+
+        .blob-2 {
+            background: radial-gradient(circle, #001a1a 0%, transparent 70%);
+            bottom: -10%;
+            right: -10%;
+        }
+
+        /* --- THE LIQUID CORE --- */
+        .liquid-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            /* The Gooey Filter */
+            filter: url('#gooey');
+            pointer-events: none;
+        }
+
+        .liquid-orb {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: background 0.5s ease;
+        }
+
+        /* --- UI OVERLAY --- */
+        .ui-layer {
+            position: relative;
+            z-index: 100;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 8px;
+            background: linear-gradient(to bottom, #fff, #888);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            margin-bottom: 50px;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .select-pill {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            padding: 14px 28px;
+            border-radius: 100px;
+            font-family: inherit;
+            width: 250px;
+            text-align: center;
+            appearance: none;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .btn-pill {
+            background: #ffffff;
+            color: #000;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 100px;
+            font-family: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .btn-pill:hover:not(:disabled) {
+            transform: scale(1.05);
+            filter: brightness(0.9);
+        }
+
+        .btn-pill:disabled {
+            background: #222;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        .telemetry {
+            position: fixed;
+            bottom: 30px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: #333;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Ambient Grain Texture */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 200;
+            opacity: 0.08;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3e%3cfilter id='noiseFilter'%3e%3cfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3e%3c/filter%3e%3crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3e%3c/svg%3e");
+        }
+    </style>
+</head>
+
+<body>
+    <!-- SVG Gooey Filter Definition -->
+    <svg class="svg-filters" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="gooey">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"
+                    result="gooey" />
+                <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
+            </filter>
+        </defs>
+    </svg>
+
+    <div class="noise-overlay"></div>
+    <div class="blobs-root">
+        <div class="ambient-blob blob-1"></div>
+        <div class="ambient-blob blob-2"></div>
+    </div>
+
+    <!-- Liquid Blob System -->
+    <div id="liquidContainer" class="liquid-layer">
+        <!-- Circles will be injected here by JS -->
+    </div>
+
+    <div class="ui-layer">
+        <h1>Vigilante AI</h1>
+        <div id="statusBadge" class="status-badge">System Idle</div>
+
+        <div class="controls">
+            <select id="persona" class="select-pill">
+                <option value="grandma">Mrs. Sharma (Grandma)</option>
+                <option value="ramesh">Ramesh (Shop Owner)</option>
+                <option value="priya">Priya (Gen-Z)</option>
+                <option value="colonel">Colonel Bakshi (Army)</option>
+            </select>
+            <button id="connectBtn" class="btn-pill" onclick="connect()">Connect Neural Link</button>
+
+            <div id="activeControls" style="display: none; gap: 10px; flex-direction: column; margin-top: 10px;">
+                <button id="switchBtn" class="btn-pill"
+                    style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);"
+                    onclick="switchPersona()" disabled>Switch Identity</button>
+                <button id="disconnectBtn" class="btn-pill"
+                    style="background: rgba(255,0,0,0.1); color: #ff4444; border: 1px solid rgba(255,0,0,0.2);"
+                    onclick="disconnect()">Disconnect Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="telemetry">Neural Hub // 0x4B // Liquid Mode</div>
+
+    <script>
+        // VERSION 2.2 - MULTI-PERSONA FIX
+        const LIVEKIT_URL = "wss://vigilante-nk6tbkbt.livekit.cloud";
+        const TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiU2NhbW1lciBDYWxsZXIiLCJ2aWRlbyI6eyJyb29tSm9pbiI6dHJ1ZSwicm9vbSI6InRlc3Qtcm9vbSIsImNhblB1Ymxpc2giOnRydWUsImNhblN1YnNjcmliZSI6dHJ1ZSwiY2FuUHVibGlzaERhdGEiOnRydWUsImNhblVwZGF0ZU93bk1ldGFkYXRhIjp0cnVlfSwic3ViIjoic2NhbW1lcl9pZGVudGl0eSIsImlzcyI6IkFQSWM4Wjg4TXVqeG9ZdSIsIm5iZiI6MTc3MDIxMjc5OSwiZXhwIjoxNzcwMjM0Mzk5fQ.hWeSiOCrMB1FJ5ELGqwFhFfaIBoYijhbMaUUJt6s2QQ";
+
+        let audioCtx, localAna, currentRoom;
+        let remoteAnas = new Map();
+
+        // Enable switch button if persona changes
+        document.getElementById('persona').addEventListener('change', () => {
+            if (currentRoom && currentRoom.state === 'connected') {
+                document.getElementById('switchBtn').disabled = false;
+            }
+        });
+
+        // --- LIQUID BLOBS PHYSICS ---
+        const container = document.getElementById('liquidContainer');
+        const numBlobs = 6;
+        const blobs = [];
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let targetX = mouseX;
+        let targetY = mouseY;
+        let audioIntensity = 0;
+        let blobColor = '#ffffff';
+
+        // Create the liquid orbs
+        for (let i = 0; i < numBlobs; i++) {
+            const el = document.createElement('div');
+            el.className = 'liquid-orb';
+            container.appendChild(el);
+            blobs.push({
+                el: el,
+                x: mouseX,
+                y: mouseY,
+                size: 80 - (i * 10),
+                delay: 0.1 + (i * 0.05)
+            });
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            targetX = e.clientX;
+            targetY = e.clientY;
+        });
+
+        function animate() {
+            mouseX += (targetX - mouseX) * 0.2;
+            mouseY += (targetY - mouseY) * 0.2;
+
+            blobs.forEach((b, i) => {
+                b.x += (targetX - b.x) * b.delay;
+                b.y += (targetY - b.y) * b.delay;
+                const baseSize = b.size * (1 + audioIntensity / 100);
+                const jitter = (audioIntensity > 15) ? (Math.random() - 0.5) * audioIntensity : 0;
+                b.el.style.width = `${baseSize}px`;
+                b.el.style.height = `${baseSize}px`;
+                b.el.style.left = `${b.x + jitter}px`;
+                b.el.style.top = `${b.y + jitter}px`;
+                b.el.style.background = blobColor;
+                b.el.style.opacity = 1 - (i * 0.1);
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        async function connect() {
+            const btn = document.getElementById('connectBtn');
+            const activeControls = document.getElementById('activeControls');
+            const badge = document.getElementById('statusBadge');
+            try {
+                if (!audioCtx) audioCtx = new AudioContext();
+                await audioCtx.resume();
+
+                btn.disabled = true;
+                btn.style.display = 'none';
+                activeControls.style.display = 'flex';
+                document.getElementById('switchBtn').disabled = true;
+
+                badge.innerText = "Syncing Fluid State...";
+
+                const room = new LivekitClient.Room({ adaptiveStream: true });
+                currentRoom = room;
+                const persona = document.getElementById('persona').value;
+                console.log("[DEBUG] Selected Persona:", persona);
+
+                await room.connect(LIVEKIT_URL, TOKEN, { metadata: persona });
+                console.log("[DEBUG] Connected to room.");
+
+                try {
+                    await room.localParticipant.setMetadata(persona);
+                } catch (pe) {
+                    console.warn("[DEBUG] Non-critical: Permission to update metadata denied.");
+                }
+
+                badge.innerText = "Direct Intercept Active";
+                badge.style.color = "#fff";
+
+                await room.localParticipant.setMicrophoneEnabled(true);
+                const localTrackPub = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
+                if (localTrackPub && localTrackPub.track) setupAna(localTrackPub.track.mediaStream, 'user');
+
+                const handleTrack = (track, participant) => {
+                    console.warn(`[DEBUG] Handling track: ${track.kind} from ${participant.identity}`);
+                    if (track.kind === 'audio') {
+                        track.attach();
+                        setupAna(new MediaStream([track.mediaStreamTrack]), 'agent');
+                    }
+                };
+
+                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    handleTrack(track, participant);
+                });
+
+                if (room.remoteParticipants) {
+                    room.remoteParticipants.forEach(p => {
+                        if (p.trackPublications) {
+                            p.trackPublications.forEach(pub => {
+                                if (pub.track && pub.kind === 'audio') {
+                                    handleTrack(pub.track, p);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                startMonitoring();
+            } catch (e) {
+                console.error("[DEBUG] Connection Error:", e);
+                badge.innerText = "Link Error: " + e.message;
+                resetUI();
+            }
+        }
+
+        async function disconnect() {
+            if (currentRoom) {
+                await currentRoom.disconnect();
+                currentRoom = null;
+            }
+            resetUI();
+        }
+
+        async function switchPersona() {
+            if (currentRoom && currentRoom.state === 'connected') {
+                const persona = document.getElementById('persona').value;
+                console.log("[DEBUG] Hot-Swapping Persona to:", persona);
+                const badge = document.getElementById('statusBadge');
+                badge.innerText = "Syncing Fluid State...";
+
+                try {
+                    await currentRoom.localParticipant.setMetadata(persona);
+                    document.getElementById('switchBtn').disabled = true;
+                    badge.innerText = "Fluid State Synced";
+                } catch (e) {
+                    console.error("Hot-swap failed:", e);
+                    badge.innerText = "Sync Error: " + e.message;
+                }
+            } else {
+                connect();
+            }
+        }
+
+        function resetUI() {
+            const btn = document.getElementById('connectBtn');
+            const activeControls = document.getElementById('activeControls');
+            const badge = document.getElementById('statusBadge');
+
+            btn.disabled = false;
+            btn.style.display = 'inline-block';
+            btn.innerText = "Connect Neural Link";
+            activeControls.style.display = 'none';
+            badge.innerText = "System Idle";
+            badge.style.color = "#666";
+            audioIntensity = 0;
+            localAna = null;
+            remoteAnas.clear();
+            blobColor = '#ffffff';
+        }
+
+        function setupAna(stream, type) {
+            const src = audioCtx.createMediaStreamSource(stream);
+            const ana = audioCtx.createAnalyser();
+            ana.fftSize = 64;
+            src.connect(ana);
+            if (type === 'agent') {
+                src.connect(audioCtx.destination);
+                remoteAnas.set(stream.id, ana);
+            } else {
+                localAna = ana;
+            }
+        }
+
+        function startMonitoring() {
+            const data = new Uint8Array(32);
+            function monitor() {
+                let userV = 0, agentV = 0;
+                if (localAna) {
+                    localAna.getByteFrequencyData(data);
+                    userV = data.reduce((a, b) => a + b) / 32;
+                }
+                remoteAnas.forEach(a => {
+                    a.getByteFrequencyData(data);
+                    const v = data.reduce((a, b) => a + b) / 32;
+                    if (v > agentV) agentV = v;
+                });
+                audioIntensity = Math.max(userV, agentV);
+                if (agentV > 15) blobColor = '#ff69b4';
+                else if (userV > 15) blobColor = '#4285F4';
+                else blobColor = '#ffffff';
+                requestAnimationFrame(monitor);
+            }
+            monitor();
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,9 @@
+﻿
+==================================================
+GENERATED LIVEKIT TOKEN
+==================================================
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiU2NhbW1lciBDYWxsZXIiLCJ2aWRlbyI6eyJyb29tSm9pbiI6dHJ1ZSwicm9vbSI6InRlc3Qtcm9vbSIsImNhblB1Ymxpc2giOnRydWUsImNhblN1YnNjcmliZSI6dHJ1ZSwiY2FuUHVibGlzaERhdGEiOnRydWV9LCJzdWIiOiJzY2FtbWVyX2lkZW50aXR5IiwiaXNzIjoiQVBJYzhaODhNdWp4b1l1IiwibmJmIjoxNzY5ODkwODI2LCJleHAiOjE3Njk5MTI0MjZ9.F5gyCyEmWI-3fD1Bd0ovFX6sjQJT3c2ttTVBSeHZ5Fg
+==================================================
+
+Error generating token: 'charmap' codec can't encode character '\U0001f449' in position 0: character maps to <undefined>
+Make sure 'livekit-server-sdk' or 'livekit-api' is installed via requirements.

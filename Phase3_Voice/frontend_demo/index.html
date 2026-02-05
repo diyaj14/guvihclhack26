@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigilante AI | Agentic Interceptor</title>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000000;
+            --primary: #ffffff;
+            --accent-blue: #4285F4;
+            --accent-pink: #ff69b4;
+            --accent-cyan: #00f2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* --- SVG GRAIN FILTER --- */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            opacity: 0.08;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3e%3cfilter id='noiseFilter'%3e%3cfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3e%3c/filter%3e%3crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3e%3c/svg%3e");
+        }
+
+        /* --- MESH GRADIENT BLOBS --- */
+        .blobs-root {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 100%;
+            filter: blur(100px);
+            opacity: 0.5;
+            transition: transform 0.8s cubic-bezier(0.2, 0, 0.2, 1), background 1s ease;
+        }
+
+        .blob-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-blue) 0%, transparent 70%);
+            top: -10%;
+            left: -10%;
+            animation: float-1 25s infinite alternate ease-in-out;
+        }
+
+        .blob-2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent-pink) 0%, transparent 70%);
+            bottom: -5%;
+            right: -5%;
+            animation: float-2 30s infinite alternate ease-in-out;
+        }
+
+        .blob-3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, var(--accent-cyan) 0%, transparent 70%);
+            top: 40%;
+            left: 30%;
+            animation: float-3 20s infinite alternate ease-in-out;
+            opacity: 0.3;
+        }
+
+        @keyframes float-1 {
+            from {
+                transform: translate(0, 0) scale(1);
+            }
+
+            to {
+                transform: translate(150px, 80px) scale(1.1);
+            }
+        }
+
+        @keyframes float-2 {
+            from {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            to {
+                transform: translate(-100px, -50px) rotate(45deg) scale(1.2);
+            }
+        }
+
+        @keyframes float-3 {
+            from {
+                transform: translate(0, 0) scale(1);
+            }
+
+            to {
+                transform: translate(-50px, 100px) scale(0.9);
+            }
+        }
+
+        /* --- MAIN UI --- */
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 600;
+            letter-spacing: -2px;
+            margin-bottom: 8px;
+            background: linear-gradient(to bottom, #fff, #aaa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #ccc;
+            margin-bottom: 50px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* --- THE AGENTIC CORE --- */
+        .core-center {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 60px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .neural-orb {
+            width: 100px;
+            height: 100px;
+            background: #fff;
+            border-radius: 50%;
+            filter: blur(15px);
+            opacity: 0.9;
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .neural-orb.agent-active {
+            background: var(--accent-pink);
+            box-shadow: 0 0 80px var(--accent-pink);
+            transform: scale(1.4);
+            filter: blur(20px);
+        }
+
+        .neural-orb.user-active {
+            background: var(--accent-blue);
+            box-shadow: 0 0 80px var(--accent-blue);
+            transform: scale(1.4);
+            filter: blur(20px);
+        }
+
+        /* --- CONTROLS --- */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .select-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 14px 28px;
+            border-radius: 100px;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            cursor: pointer;
+            width: 300px;
+            backdrop-filter: blur(20px);
+            text-align: center;
+            appearance: none;
+        }
+
+        .btn-pill {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 100px;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+            box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-pill:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-pill:disabled {
+            background: #222;
+            color: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .telemetry {
+            position: fixed;
+            bottom: 30px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: #555;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="noise-overlay"></div>
+
+    <div class="blobs-root">
+        <div id="b1" class="blob blob-1"></div>
+        <div id="b2" class="blob blob-2"></div>
+        <div id="b3" class="blob blob-3"></div>
+    </div>
+
+    <div class="ui-layer">
+        <h1>Vigilante AI</h1>
+        <div id="statusBadge" class="status-badge">System Idle</div>
+
+        <div class="core-center">
+            <div id="neuralOrb" class="neural-orb"></div>
+        </div>
+
+        <div class="controls">
+            <select id="persona" class="select-pill">
+                <option value="grandma">Mrs. Sharma (Grandma)</option>
+                <option value="ramesh">Ramesh (Shop Owner)</option>
+                <option value="priya">Priya (Gen-Z)</option>
+                <option value="colonel">Colonel Bakshi (Army)</option>
+            </select>
+
+            <button id="connectBtn" class="btn-pill" onclick="connect()">Connect Agent</button>
+
+            <div id="activeControls" style="display: none; gap: 10px; flex-direction: column; margin-top: 10px;">
+                <button id="switchBtn" class="btn-pill"
+                    style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);"
+                    onclick="switchPersona()" disabled>Switch Identity</button>
+                <button id="disconnectBtn" class="btn-pill"
+                    style="background: rgba(255,0,0,0.1); color: #ff4444; border: 1px solid rgba(255,0,0,0.2);"
+                    onclick="disconnect()">Disconnect Link</button>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button onclick="testSound()"
+                    style="background: none; border: 1px solid #333; color: #555; padding: 6px 14px; border-radius: 100px; font-size: 0.6rem; cursor: pointer; opacity: 0.6;">Diagnostics:
+                    Sound Check</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="telemetry">Neural Network Node // 402.1 // Ready</div>
+
+    <script>
+        // VERSION 2.2 - MULTI-PERSONA FIX
+        console.log("Vigilante UI v2.2 Initialized");
+
+        const LIVEKIT_URL = "wss://vigilante-nk6tbkbt.livekit.cloud";
+        const TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiU2NhbW1lciBDYWxsZXIiLCJ2aWRlbyI6eyJyb29tSm9pbiI6dHJ1ZSwicm9vbSI6InRlc3Qtcm9vbSIsImNhblB1Ymxpc2giOnRydWUsImNhblN1YnNjcmliZSI6dHJ1ZSwiY2FuUHVibGlzaERhdGEiOnRydWUsImNhblVwZGF0ZU93bk1ldGFkYXRhIjp0cnVlfSwic3ViIjoic2NhbW1lcl9pZGVudGl0eSIsImlzcyI6IkFQSWM4Wjg4TXVqeG9ZdSIsIm5iZiI6MTc3MDIyNDQ3NywiZXhwIjoxNzcwMjQ2MDc3fQ.ryA2CHF1lEzAUvhVnKWMdx6Fn6Aj7aU9eekH7GQiD8E";
+
+        let audioContext, localAnalyser, currentRoom;
+        let remoteAnalysers = new Map();
+
+        // Enable switch button if persona changes
+        document.getElementById('persona').addEventListener('change', () => {
+            if (currentRoom && currentRoom.state === 'connected') {
+                document.getElementById('switchBtn').disabled = false;
+            }
+        });
+
+        const orb = document.getElementById('neuralOrb');
+        const badge = document.getElementById('statusBadge');
+        const blobs = [document.getElementById('b1'), document.getElementById('b2'), document.getElementById('b3')];
+
+        async function connect() {
+            const btn = document.getElementById('connectBtn');
+            const activeControls = document.getElementById('activeControls');
+            try {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                await audioContext.resume();
+
+                btn.disabled = true;
+                btn.style.display = 'none';
+                activeControls.style.display = 'flex';
+                document.getElementById('switchBtn').disabled = true;
+
+                badge.innerText = "Initializing Sync...";
+
+                const room = new LivekitClient.Room({ adaptiveStream: true });
+                currentRoom = room;
+                const persona = document.getElementById('persona').value;
+                console.log("[DEBUG] Selected Persona:", persona);
+
+                // Pass metadata during connection (Primary method)
+                await room.connect(LIVEKIT_URL, TOKEN, { metadata: persona });
+                console.log("[DEBUG] Connected to room.");
+
+                // Fallback attempt to set metadata (in case connection options aren't picked up)
+                try {
+                    await room.localParticipant.setMetadata(persona);
+                } catch (pe) {
+                    console.warn("[DEBUG] Non-critical: Permission to update metadata denied. Relying on connection metadata.");
+                }
+
+                badge.innerText = "Link Established";
+
+                await room.localParticipant.setMicrophoneEnabled(true);
+                const localTrackPub = room.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
+                if (localTrackPub && localTrackPub.track) setupAnalyser(localTrackPub.track.mediaStream, 'user');
+
+                // Function to handle newly discovered audio tracks
+                const handleTrack = (track, participant) => {
+                    console.log(`[AUDIO DEBUG] Track Event from ${participant.identity}: kind=${track.kind}, source=${track.source}`);
+                    if (track.kind === 'audio') {
+                        console.log("[AUDIO DEBUG] Agent audio detected! ATTACHING TO DOM...");
+                        const el = track.attach();
+                        el.id = `remote-audio-${track.sid}`;
+                        document.body.appendChild(el);
+                        console.log(`[AUDIO DEBUG] SUCCESS: Audio element <audio> created and appended. HTML ID: ${el.id}`);
+                        setupAnalyser(new MediaStream([track.mediaStreamTrack]), 'agent');
+                    }
+                };
+
+                // Listen for FUTURE tracks
+                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    handleTrack(track, participant);
+                });
+
+                // Check for EXISTING tracks (crucial if agent joined before us)
+                if (room.remoteParticipants) {
+                    room.remoteParticipants.forEach(p => {
+                        if (p.trackPublications) {
+                            p.trackPublications.forEach(pub => {
+                                if (pub.track && pub.kind === 'audio') {
+                                    handleTrack(pub.track, p);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                startLoop();
+            } catch (e) {
+                console.error("[DEBUG] Connection Error:", e);
+                badge.innerText = "Link Error: " + e.message;
+                resetUI();
+            }
+        }
+
+        async function disconnect() {
+            if (currentRoom) {
+                await currentRoom.disconnect();
+                currentRoom = null;
+            }
+            resetUI();
+        }
+
+        async function switchPersona() {
+            if (currentRoom && currentRoom.state === 'connected') {
+                const persona = document.getElementById('persona').value;
+                console.log("[DEBUG] Hot-Swapping Persona to:", persona);
+                const badge = document.getElementById('statusBadge');
+                badge.innerText = "Switching Identity...";
+
+                try {
+                    await currentRoom.localParticipant.setMetadata(persona);
+                    document.getElementById('switchBtn').disabled = true;
+                    badge.innerText = "System Synced";
+                } catch (e) {
+                    console.error("Hot-swap failed:", e);
+                    badge.innerText = "Sync Error: " + e.message;
+                }
+            } else {
+                connect();
+            }
+        }
+
+        function resetUI() {
+            const btn = document.getElementById('connectBtn');
+            const activeControls = document.getElementById('activeControls');
+            const badge = document.getElementById('statusBadge');
+
+            btn.disabled = false;
+            btn.style.display = 'inline-block';
+            btn.innerText = "Connect Agent";
+            activeControls.style.display = 'none';
+            badge.innerText = "System Idle";
+            badge.style.color = "#666";
+            audioIntensity = 0;
+            localAnalyser = null;
+            remoteAnalysers.clear();
+            orb.className = 'neural-orb';
+        }
+
+        async function testSound() {
+            try {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                await audioContext.resume();
+                const osc = audioContext.createOscillator();
+                osc.connect(audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + 0.5);
+                alert("If you heard a beep, speakers are working!");
+            } catch (e) {
+                alert("Sound Test Failed: " + e.message);
+            }
+        }
+
+        function setupAnalyser(stream, type) {
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 64;
+            source.connect(analyser);
+
+            if (type === 'agent') {
+                source.connect(audioContext.destination);
+                remoteAnalysers.set(stream.id, analyser);
+            } else {
+                localAnalyser = analyser;
+            }
+        }
+
+        let audioIntensity = 0;
+        function startLoop() {
+            const data = new Uint8Array(32);
+            function loop() {
+                let userV = 0, agentV = 0;
+                if (localAnalyser) {
+                    localAnalyser.getByteFrequencyData(data);
+                    userV = data.reduce((a, b) => a + b) / 32;
+                }
+                remoteAnalysers.forEach(a => {
+                    a.getByteFrequencyData(data);
+                    const v = data.reduce((a, b) => a + b) / 32;
+                    if (v > agentV) agentV = v;
+                });
+
+                audioIntensity = Math.max(userV, agentV);
+
+                // UI Feedbacks
+                if (agentV > 15) {
+                    orb.className = 'neural-orb agent-active';
+                } else if (userV > 15) {
+                    orb.className = 'neural-orb user-active';
+                } else {
+                    orb.className = 'neural-orb';
+                }
+
+                // Blob reactions
+                blobs.forEach((b, i) => {
+                    const scale = 1 + (audioIntensity / 100);
+                    b.style.transform = `scale(${scale})`;
+                });
+
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
+    </script>
+</body>
+
+</html>
